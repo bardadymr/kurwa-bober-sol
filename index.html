@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kurwa Bober SOL v1.0</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #1e1e2e;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            width: 400px;
+        }
+        input {
+            width: 95%;
+            padding: 10px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 5px;
+            background-color: #282a36;
+            color: white;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #9945FF;
+            border: none;
+            color: white;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: rgb(157, 20, 243);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Kurwa Bober SOL v1.0</h2>
+        <input type="password" id="privateKey" placeholder="Enter Private Key">
+        <input type="text" id="tokenAddress" placeholder="Enter Token Address">
+        <button onclick="sellTokens()">Sell KURWA!</button>
+        <p id="status"></p>
+    </div>
+
+    <script>
+        async function sellTokens() {
+            const privateKey = document.getElementById("privateKey").value;
+            const tokenAddress = document.getElementById("tokenAddress").value;
+            const status = document.getElementById("status");
+            status.innerText = "Processing...";
+
+            const response = await fetch("https://your-backend.com/api/tokens/sell", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ privateKey, tokenAddress })
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                status.innerText = "Success: " + data.signature;
+            } else {
+                status.innerText = "Error: " + data.error;
+            }
+        }
+    </script>
+</body>
+</html>
