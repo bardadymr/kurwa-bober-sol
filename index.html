@@ -22,7 +22,7 @@
             text-align: center;
             width: 400px;
         }
-        input {
+        input, textarea {
             width: 95%;
             padding: 10px;
             margin: 10px 0;
@@ -30,6 +30,10 @@
             border-radius: 5px;
             background-color: #282a36;
             color: white;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
         }
         button {
             width: 100%;
@@ -40,39 +44,262 @@
             font-size: 16px;
             border-radius: 5px;
             cursor: pointer;
+            margin-bottom: 10px;
         }
         button:hover {
             background-color: rgb(157, 20, 243);
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        .tab {
+            flex: 1;
+            padding: 10px;
+            background-color: #282a36;
+            cursor: pointer;
+        }
+        .tab.active {
+            background-color: #9945FF;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        label {
+            display: block;
+            text-align: left;
+            margin-top: 10px;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        .status-container {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #282a36;
+            text-align: left;
+            max-height: 150px;
+            overflow-y: auto;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>Kurwa Bober SOL v1.0</h2>
-        <input type="password" id="privateKey" placeholder="Enter Private Key">
-        <input type="text" id="tokenAddress" placeholder="Enter Token Address">
-        <button onclick="sellTokens()">Sell KURWA!</button>
-        <p id="status"></p>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="openTab('sellTab')">Sell Token</div>
+            <div class="tab" onclick="openTab('sniperTab')">Token Sniper</div>
+        </div>
+        
+        <!-- Sell Token Tab (Original) -->
+        <div id="sellTab" class="tab-content active">
+            <input type="password" id="privateKey" placeholder="Enter Private Key">
+            <input type="text" id="tokenAddress" placeholder="Enter Token Address">
+            <button onclick="sellTokens()">Sell KURWA!</button>
+            <p id="status"></p>
+        </div>
+        
+        <!-- Token Sniper Tab (New) -->
+        <div id="sniperTab" class="tab-content">
+            <label for="targetWallet">Target Wallet Address (to monitor)</label>
+            <input type="text" id="targetWallet" placeholder="Target Wallet Address">
+            
+            <label for="privateKeys">Private Keys (one per line)</label>
+            <textarea id="privateKeys" placeholder="Enter your private keys (one per line)"></textarea>
+            
+            <label for="buyAmount">Buy Amount (SOL)</label>
+            <input type="number" id="buyAmount" placeholder="Buy Amount in SOL" value="0.01" min="0.001" step="0.001">
+            
+            <div id="sniperControls">
+                <button id="startSniperBtn" onclick="startSniper()">Start Sniper</button>
+                <button id="stopSniperBtn" onclick="stopSniper()" style="background-color: #FF4545; display: none;">Stop Sniper</button>
+            </div>
+            
+            <div class="status-container">
+                <div id="sniperStatus">Ready to start token sniper...</div>
+            </div>
+        </div>
     </div>
-
+    
     <script>
+        // Original sell function
         async function sellTokens() {
             const privateKey = document.getElementById("privateKey").value;
             const tokenAddress = document.getElementById("tokenAddress").value;
             const status = document.getElementById("status");
             status.innerText = "Отправка...";
-
             const response = await fetch("https://a808-95-46-155-25.ngrok-free.app/api/tokens/sell", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ privateKey, tokenAddress })
             });
             const data = await response.json();
-
             if (response.ok) {
                 status.innerText = "Успешно!";
             } else {
                 status.innerText = "Error: " + data.error;
+            }
+        }
+        
+        // Tab switching functionality
+        function openTab(tabName) {
+            const tabContents = document.getElementsByClassName("tab-content");
+            for (let i = 0; i < tabContents.length; i++) {
+                tabContents[i].classList.remove("active");
+            }
+            
+            const tabs = document.getElementsByClassName("tab");
+            for (let i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove("active");
+            }
+            
+            document.getElementById(tabName).classList.add("active");
+            event.currentTarget.classList.add("active");
+        }
+        
+        // Token Sniper functionality
+        let sniperActive = false;
+        let sniperInterval;
+        
+        function logStatus(message) {
+            const statusElement = document.getElementById("sniperStatus");
+            const timestamp = new Date().toLocaleTimeString();
+            statusElement.innerHTML = `<div>[${timestamp}] ${message}</div>` + statusElement.innerHTML;
+        }
+        
+        async function startSniper() {
+            if (sniperActive) {
+                logStatus("Sniper is already running.");
+                return;
+            }
+            
+            const targetWallet = document.getElementById("targetWallet").value.trim();
+            const privateKeysText = document.getElementById("privateKeys").value.trim();
+            const buyAmount = parseFloat(document.getElementById("buyAmount").value);
+            
+            // Validate inputs
+            if (!targetWallet) {
+                logStatus("Error: Target wallet address is required.");
+                return;
+            }
+            
+            if (!privateKeysText) {
+                logStatus("Error: At least one private key is required.");
+                return;
+            }
+            
+            if (isNaN(buyAmount) || buyAmount <= 0) {
+                logStatus("Error: Invalid buy amount.");
+                return;
+            }
+            
+            // Parse private keys (one per line)
+            const privateKeys = privateKeysText.split('\n')
+                .map(key => key.trim())
+                .filter(key => key.length > 0);
+            
+            if (privateKeys.length === 0) {
+                logStatus("Error: No valid private keys found.");
+                return;
+            }
+            
+            try {
+                logStatus("Starting token sniper...");
+                
+                // Send request to start the sniper
+                const response = await fetch("https://a808-95-46-155-25.ngrok-free.app/api/sniper/start", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        privateKeys,
+                        targetWalletAddress: targetWallet,
+                        buyAmount
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    sniperActive = true;
+                    document.getElementById("startSniperBtn").style.display = "none";
+                    document.getElementById("stopSniperBtn").style.display = "block";
+                    
+                    logStatus(`Sniper started successfully. Monitoring wallet: ${targetWallet}`);
+                    logStatus(`Using ${privateKeys.length} wallet(s) for buying with ${buyAmount} SOL each`);
+                    
+                    // Start status checking interval
+                    sniperInterval = setInterval(checkSniperStatus, 10000);
+                } else {
+                    logStatus(`Error starting sniper: ${data.error || "Unknown error"}`);
+                }
+            } catch (error) {
+                logStatus(`Error: ${error.message || "Failed to connect to server"}`);
+            }
+        }
+        
+        async function stopSniper() {
+            if (!sniperActive) {
+                logStatus("Sniper is not running.");
+                return;
+            }
+            
+            try {
+                logStatus("Stopping token sniper...");
+                
+                // Send request to stop the sniper
+                const response = await fetch("https://a808-95-46-155-25.ngrok-free.app/api/sniper/stop", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    clearInterval(sniperInterval);
+                    sniperActive = false;
+                    document.getElementById("startSniperBtn").style.display = "block";
+                    document.getElementById("stopSniperBtn").style.display = "none";
+                    
+                    logStatus("Sniper stopped successfully.");
+                } else {
+                    logStatus(`Error stopping sniper: ${data.error || "Unknown error"}`);
+                }
+            } catch (error) {
+                logStatus(`Error: ${error.message || "Failed to connect to server"}`);
+            }
+        }
+        
+        async function checkSniperStatus() {
+            if (!sniperActive) return;
+            
+            try {
+                const response = await fetch("https://a808-95-46-155-25.ngrok-free.app/api/sniper/status");
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.active) {
+                        // Only log new tokens if they exist
+                        if (data.recentTokens && data.recentTokens.length > 0) {
+                            data.recentTokens.forEach(token => {
+                                logStatus(`New token detected: ${token.address} (${token.success ? "bought" : "failed"})`);
+                            });
+                        }
+                    } else {
+                        // Sniper was stopped from server side
+                        clearInterval(sniperInterval);
+                        sniperActive = false;
+                        document.getElementById("startSniperBtn").style.display = "block";
+                        document.getElementById("stopSniperBtn").style.display = "none";
+                        logStatus("Sniper was stopped from server side.");
+                    }
+                }
+            } catch (error) {
+                logStatus("Error checking sniper status. Will retry...");
             }
         }
     </script>
